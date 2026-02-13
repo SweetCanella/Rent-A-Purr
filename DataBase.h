@@ -25,8 +25,6 @@ public:
     void Sql_request_callback(const string& sql_string,std::function<void(vector<string>)>callback);
 
     vector<vector<string>> Sql_request_vector(const string& sql_string);
-
-
 };
 
 

@@ -3,7 +3,9 @@
 
 
     DataBase::DataBase(): db(nullptr){
-        OpenDataBase();
+        if(OpenDataBase()){
+            CreateTables();
+        }
     }
 
     DataBase::~DataBase(){
@@ -11,12 +13,13 @@
     }
 
     bool DataBase::CreateTables(){
-        return Sql_exec("");/////////////////
+        Sql_exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, access_level INTEGER DEFAULT 0 CHECK(access_level IN (0, 1)));");
+        return true;
     }
 
 
     bool DataBase::OpenDataBase(){
-        int answer_from_db = sqlite3_open("CatsDataBase",&db);
+        int answer_from_db = sqlite3_open("../DataBase/CatsDataBase.db",&db);
         if(answer_from_db!=SQLITE_OK){
             cout<<"Cannot oped DB: "<<sqlite3_errmsg(db)<<endl;
             return false;
@@ -28,7 +31,9 @@
         if(db){
             sqlite3_close(db);
             db=nullptr;
+            return true;
         }
+        return false;
     }
 
     bool DataBase::Sql_exec(const string& sql_string){
