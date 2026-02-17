@@ -8,10 +8,6 @@ using namespace std;
 
 extern DataBase db;
 
-bool Handler::verifyPassword(const string& Password, const string& hashedPassword) {
-            return hashPassword(Password) == hashedPassword;
-}
-
 string Handler::hashPassword(const string& password) {
             unsigned char hash[SHA256_DIGEST_LENGTH];
             SHA256((unsigned char*)password.c_str(), password.length(), hash);
@@ -20,6 +16,10 @@ string Handler::hashPassword(const string& password) {
                 ss << hex << setw(2) << setfill('0') << (int)hash[i];
             }
             return ss.str();
+}
+
+bool Handler::verifyPassword(const string& plainPassword, const string& hashedPassword) {
+            return hashPassword(plainPassword) == hashedPassword;
 }
 
 int Handler::checkAuth(string session_id) {
@@ -85,6 +85,7 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
     }
     string username = (*json)["username"].asString();
     string password = (*json)["password"].asString();
+    string nickname = (*json)["nickname"].asString();
     password = hashPassword(password);
     char *sql = sqlite3_mprintf("SELECT id FROM users WHERE username=%Q",username.c_str());
     vector<vector<string>> check = db.Sql_request_vector(sql);
@@ -98,7 +99,7 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
         callback(response);
         return;
     }
-    sql = sqlite3_mprintf("INSERT INTO users (username, password) VALUES (%Q, %Q)",username.c_str(),password.c_str());
+    sql = sqlite3_mprintf("INSERT INTO users (username, password, nickname) VALUES (%Q, %Q, %Q)",username.c_str(),password.c_str(),nickname.c_str());
     if(!(db.Sql_exec(sql))){
         sqlite3_free(sql);
         Json::Value bad_answer;
@@ -122,5 +123,57 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
         response->addHeader("Set-Cookie","session_id=" + session_id + "; Max-Age=86400; Path=/; HttpOnly");
     } 
     response->setStatusCode(k201Created);
+    callback(response);
+}
+
+void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const HttpResponsePtr&)>&& callback){
+    auto json = request->getJsonObject();
+    if(!json){
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="Bad Json";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k400BadRequest);
+        callback(response);
+        return;
+    }
+    
+    string username = (*json)["username"].asString();
+    string password = (*json)["password"].asString();
+
+    char* sql = sqlite3_mprintf("SELECT id, password, nickname FROM users WHERE username=%Q",username.c_str());
+    vector<vector<string>> check = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+    if(check.empty()){
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="Wrong username or password";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k401Unauthorized);
+        callback(response);
+        return;
+    }
+    if(!verifyPassword(password,check[0][1])){
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="Wrong username or password";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k401Unauthorized);
+        callback(response);
+        return;
+    }
+
+    Json::Value resp;
+    resp["status"]="ok";
+    resp["message"] = "User authorized";
+    resp["nickname"]=check[0][2];
+    auto response = HttpResponse::newHttpJsonResponse(resp);
+
+    string session_id = createSession(stoi(check[0][0]));
+
+    if(session_id!=""){
+        response->addHeader("Set-Cookie","session_id=" + session_id + "; Max-Age=86400; Path=/; HttpOnly");        
+    }
+    response->setStatusCode(k200OK);
     callback(response);
 }

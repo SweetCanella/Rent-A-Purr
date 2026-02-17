@@ -26,9 +26,7 @@ class Handler{
 
     public:
 
-
-
         static void RegisterUser(const HttpRequestPtr& request,std::function<void(const HttpResponsePtr&)>&& callback);
         
-        //static void AutoriseUser(const HttpRequestPtr& req,function<void(const HttpResponsePtr&)> callback);
+        static void AutoriseUser(const HttpRequestPtr& req,function<void(const HttpResponsePtr&)>&& callback);
 };
