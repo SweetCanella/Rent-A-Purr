@@ -48,7 +48,14 @@ string Handler::generateSessionId() {
 string Handler::createSession(long long id){
 
     string sessionId = generateSessionId();
-    char* sql = sqlite3_mprintf("INSERT INTO sessions (session_id, user_id, expires_at) VALUES (%Q, %d, datetime('now', '+1 day'))",sessionId.c_str(), id);
+
+    char* sql = sqlite3_mprintf("SELECT user_id FROM sessions WHERE user_id = %d",id);
+    if(!db.Sql_request_vector(sql).empty()){
+        sqlite3_free(sql);
+        return "";
+    }
+    sqlite3_free(sql);
+    sql = sqlite3_mprintf("INSERT INTO sessions (session_id, user_id, expires_at) VALUES (%Q, %d, datetime('now', '+1 day'))",sessionId.c_str(), id);
     if (db.Sql_exec(sql)) {
             sqlite3_free(sql);
             return sessionId;
