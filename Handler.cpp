@@ -188,16 +188,19 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
 }
 
 void Handler::GetCats(const HttpRequestPtr& req,function<void(const HttpResponsePtr&)>&& callback){
-    Json::Value resp(Json::arrayValue);
-    Json::Value buffer_cat;
+    Json::Value resp;
+    Json::Value cats(Json::arrayValue);
     char* sql = sqlite3_mprintf("SELECT * FROM cats");
-    db.Sql_request_callback(sql,[&resp, &buffer_cat](vector<string> output){
+    db.Sql_request_callback(sql,[&cats](vector<string> output){
+        Json::Value buffer_cat;
         buffer_cat["name"]=output[1];
         buffer_cat["description"]=output[2];
         buffer_cat["filename"]=output[3];
-        resp.append(buffer_cat);
+        cats.append(buffer_cat);
     });
     sqlite3_free(sql);
+    resp["status"]="ok";
+    resp["cats"]=cats;
     auto response = HttpResponse::newHttpJsonResponse(resp);
     response->setStatusCode(k200OK);
     callback(response);
