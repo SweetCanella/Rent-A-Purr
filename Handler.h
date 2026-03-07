@@ -28,6 +28,8 @@ class Handler{
 
         static string GenerateFileName(string extension);
 
+        static int IdByLogin(string username);
+
     public:
 
         static void RegisterUser(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
@@ -46,7 +48,11 @@ class Handler{
 
         static void GetAdminBookings(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
 
+        static void AddAdminBooking(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
+
         static void ConfirmAdminBookings(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
 
         static void RejectAdminBooking(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
+
+        static void GetUserData(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
 };

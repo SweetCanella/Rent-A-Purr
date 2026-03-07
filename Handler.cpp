@@ -8,6 +8,16 @@ using namespace std;
 
 extern DataBase db;
 
+int Handler::IdByLogin(string username){
+    char* sql = sqlite3_mprintf("SELECT id FROM users WHERE username = %Q",username);
+    vector<vector<string>> output = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+    if(output.empty()){
+        return -1;
+    }
+    return stoi(output[0][0]);
+}
+
 string Handler::hashPassword(const string& password) {
             unsigned char hash[SHA256_DIGEST_LENGTH];
             SHA256((unsigned char*)password.c_str(), password.length(), hash);
@@ -34,7 +44,7 @@ bool Handler::CheckPermissions(int user_id){
     char* sql = sqlite3_mprintf("SELECT access_level FROM users WHERE id = %d",user_id);
     vector<vector<string>> result = db.Sql_request_vector(sql);
     sqlite3_free(sql);
-    if(result[0][0]=="0"){
+    if(result[0][0]=="0" || result.empty()){
         return false;
     }else{
         return true;
@@ -94,7 +104,8 @@ int Handler::getUserIdFromSession(const string& sessionId) {
 }
 
 void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const HttpResponsePtr&)>&& callback){
-    cout<<"POST /register"<<endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
     auto json = request->getJsonObject();
     if(!json){
         Json::Value bad_answer;
@@ -153,7 +164,8 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
 }
 
 void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const HttpResponsePtr&)>&& callback){
-    cout<<"GET /login"<<endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
     auto json = request->getJsonObject();
     if(!json){
         Json::Value bad_answer;
@@ -208,7 +220,8 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
 }
 
 void Handler::GetCats(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback) {
-    cout << "GET /cats" << endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
     Json::Value resp;
     Json::Value cats(Json::arrayValue);
 
@@ -248,12 +261,13 @@ void Handler::GetCats(const HttpRequestPtr& request, function<void(const HttpRes
         Json::Value bookings(Json::arrayValue);
         
         
-        char* bookings_sql = sqlite3_mprintf("SELECT start_time, end_time FROM bookings WHERE cat_id = %d AND status = 1 ORDER BY start_time",stoi(output[0]));
+        char* bookings_sql = sqlite3_mprintf("SELECT user_id, start_time, end_time FROM bookings WHERE cat_id = %d AND status = 1 ORDER BY start_time",stoi(output[0]));
         
         db.Sql_request_callback(bookings_sql, [&bookings](vector<string> booking_output) {
             Json::Value tek_booking(Json::arrayValue);
             tek_booking.append(booking_output[0]);
             tek_booking.append(booking_output[1]);
+            tek_booking.append(booking_output[2]);
             bookings.append(tek_booking);
         });
         
@@ -290,6 +304,8 @@ void Handler::GetCats(const HttpRequestPtr& request, function<void(const HttpRes
 }
 
 void Handler::handleOptions(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback) {
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
     auto resp = HttpResponse::newHttpResponse();
     resp->setStatusCode(k200OK);
     resp->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
@@ -301,7 +317,9 @@ void Handler::handleOptions(const HttpRequestPtr& request, function<void(const H
 }
 
 void Handler::uploadCatPhoto(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback) {
-    cout<<"POST /cats"<<endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
+
     string sessionId = request->getCookie("session_id");
     int user_id = checkAuth(sessionId);
     if (user_id == -1) {
@@ -512,6 +530,8 @@ void Handler::uploadCatPhoto(const HttpRequestPtr& request, function<void(const 
 }
 
 void Handler::updateCatTagsAndMedical(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback) {
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
     string url = request->getPath();
     size_t poz = url.find_last_of('/');
     string id = url.substr(poz+1);
@@ -744,7 +764,7 @@ void Handler::updateCatTagsAndMedical(const HttpRequestPtr& request, function<vo
 }
 
 void Handler::AddToBookings(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
-    cout<<"POST /bookings"<<endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
     string sessionId = request->getCookie("session_id");
     int user_id = checkAuth(sessionId);
     
@@ -867,7 +887,7 @@ void Handler::AddToBookings(const HttpRequestPtr& request, function<void(const H
 }
 
 void Handler::GetAdminBookings(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback) {
-    cout << "GET /bookings/admin" << endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
     
     string sessionId = request->getCookie("session_id");
     int user_id = checkAuth(sessionId);
@@ -931,7 +951,7 @@ void Handler::GetAdminBookings(const HttpRequestPtr& request, function<void(cons
 }
 
 void Handler::ConfirmAdminBookings(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
-    cout << "PUT /admin/bookings/"<<endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
     string sessionId = request->getCookie("session_id");
     int user_id = checkAuth(sessionId);
     
@@ -1035,7 +1055,7 @@ void Handler::ConfirmAdminBookings(const HttpRequestPtr& request, function<void(
 }
 
 void Handler::RejectAdminBooking(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
-    cout << "DELETE /admin/bookings" << endl;
+    cout << request->getMethodString() << " " << request->getPath() << endl;
     
     string sessionId = request->getCookie("session_id");
     int user_id = checkAuth(sessionId);
@@ -1136,5 +1156,200 @@ void Handler::RejectAdminBooking(const HttpRequestPtr& request, function<void(co
     response->setStatusCode(k200OK);
     response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
     callback(response);
+}
+
+void Handler::AddAdminBooking(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+    
+    string sessionId = request->getCookie("session_id");
+    int user_id_adm = checkAuth(sessionId);
+    
+    if (user_id_adm == -1){
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Unauthorized";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k401Unauthorized);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+    
+    if (!CheckPermissions(user_id_adm)){
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Access Denied";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k403Forbidden);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+
+    auto json = request->getJsonObject();
+    if (!json) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Invalid JSON";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k400BadRequest);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+    
+    if (!json->isMember("email") || !json->isMember("cat_id") || !json->isMember("start_time") || !json->isMember("end_time")){
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Missing email or cat_id or start_time or end_time field";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k400BadRequest);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+    
+    string email = (*json)["email"].asString();
+    int cat_id = (*json)["cat_id"].asInt();
+    string start_time = (*json)["start_time"].asString();
+    string end_time = (*json)["end_time"].asString(); 
+
+    int user_id = IdByLogin(email);
+    if(user_id ==-1){
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "User not found";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k404NotFound);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+
+    char* check_cat_sql = sqlite3_mprintf("SELECT id FROM cats WHERE id = %d", cat_id);
+    vector<vector<string>> cat_check = db.Sql_request_vector(check_cat_sql);
+    sqlite3_free(check_cat_sql);
+
+    if (cat_check.empty()) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Cat not found";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k404NotFound);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+
+    char* check_booking_sql = sqlite3_mprintf(
+        "SELECT id FROM bookings WHERE cat_id = %d AND status = 1 AND "
+        "((start_time <= %Q AND end_time > %Q) OR "
+        "(start_time < %Q AND end_time >= %Q) OR "
+        "(start_time >= %Q AND end_time <= %Q))",
+        cat_id, 
+        start_time.c_str(), start_time.c_str(),
+        end_time.c_str(), end_time.c_str(),
+        start_time.c_str(), end_time.c_str()
+    );
+    
+    vector<vector<string>> booking_check = db.Sql_request_vector(check_booking_sql);
+    sqlite3_free(check_booking_sql);
+    
+    if (!booking_check.empty()) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Cat is already booked for this time period";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k409Conflict);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+
+
+
+
+    
+    char* sql = sqlite3_mprintf("INSERT INTO bookings (cat_id, user_id, start_time, end_time, status) VALUES (%d, %d, %Q, %Q, 1)",cat_id, user_id,start_time,end_time);
+    if(!db.Sql_exec(sql)){
+        sqlite3_free(sql);
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Failed to create booking";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k500InternalServerError);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+    sqlite3_free(sql);
+
+    int booking_id = sqlite3_last_insert_rowid(db.GetDataBaseLink());
+
+    Json::Value resp;
+
+    resp["status"] = "ok";
+    resp["message"] = "Booking created successfully by admin";
+    resp["booking"]["id"] = booking_id;
+    resp["booking"]["cat_id"] = cat_id;
+    resp["booking"]["user_id"] = user_id;
+    resp["booking"]["start_time"] = start_time;
+    resp["booking"]["end_time"] = end_time;
+    resp["booking"]["status"] = 1;
+
+    auto response = HttpResponse::newHttpJsonResponse(resp);
+    response->setStatusCode(k201Created);
+    response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+    callback(response);
+}
+
+void Handler::GetUserData(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
+
+    string sessionId = request->getCookie("session_id");
+    int user_id = checkAuth(sessionId);
+    
+    if (user_id == -1) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Unauthorized";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k401Unauthorized);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+
+    char* sql = sqlite3_mprintf("SELECT id, nickname FROM users WHERE id=%d",user_id);
+    vector<vector<string>> user_data_vector = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+    if(user_data_vector.empty()){
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "no user data";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k404NotFound);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+        callback(response);
+        return;
+    }
+
+    Json::Value user_data;
+    user_data["user_id"]=stoi(user_data_vector[0][0]);
+    user_data["nickname"]=user_data_vector[0][1];
+
+    sql = sqlite3_mprintf("SELECT cat_id, user_id, start_time, end_time, status FROM bookings WHERE user_id=%d",user_id);
+    Json::Value bookings(Json::arrayValue);
+    db.Sql_request_callback(sql,[&bookings](vector<string> bookings_string){
+        Json::Value bookings_array(Json::arrayValue);
+        bookings_array["cat_id"]=stoi(bookings_string[0]);
+        bookings_array["user_id"]=stoi(bookings_string[1]);
+        bookings_array["start_time"]=bookings_string[2];
+        bookings_array["end_time"]=bookings_string[3];
+        bookings_array["status"]=stoi(bookings_string[4]);
+        bookings.append(bookings_array);
+    });
+    user_data["bookings"]=bookings;
 }
 

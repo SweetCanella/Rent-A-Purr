@@ -31,7 +31,11 @@ int main() {
     app().registerHandler("/bookings",&Handler::AddToBookings,{Post});
     app().registerHandler("/bookings", &Handler::handleOptions, {Options});
 
+    app().registerHandler("/profile",&Handler::GetUserData,{Get});
+    app().registerHandler("/profile",&Handler::handleOptions,{Options});
+
     app().registerHandler("/bookings/admin",&Handler::GetAdminBookings,{Get});
+    app().registerHandler("/bookings/admin",&Handler::AddAdminBooking,{Post});
     app().registerHandler("/bookings/admin",&Handler::ConfirmAdminBookings,{Put});
     app().registerHandler("/bookings/admin",&Handler::RejectAdminBooking,{Delete});
     app().registerHandler("/bookings/admin", &Handler::handleOptions, {Options});
