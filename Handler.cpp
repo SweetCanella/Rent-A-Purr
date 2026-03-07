@@ -234,69 +234,94 @@ void Handler::GetCats(const HttpRequestPtr& request, function<void(const HttpRes
         "GROUP BY cats.id"
     );
 
-    db.Sql_request_callback(sql, [&cats](vector<string> output) {
-        Json::Value buffer_cat;
+    vector<vector<string>> cats_data = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
 
-        buffer_cat["id"] = stoi(output[0]);
-        buffer_cat["name"] = output[1];
-        buffer_cat["description"] = output[2];
-        buffer_cat["breed"] = output[3];
-        buffer_cat["age"] = output[4];
-        buffer_cat["filename"] = output[5];
-        
+    sql = sqlite3_mprintf(
+        "SELECT cat_id, user_id, start_time, end_time "
+        "FROM bookings WHERE status = 1 "
+        "ORDER BY cat_id, start_time"
+    );
+
+    vector<vector<string>> all_bookings = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+
+    map<int, vector<vector<string>>> bookings_by_cat;
+    for (const auto& booking : all_bookings) {
+        int cat_id = stoi(booking[0]);
+        bookings_by_cat[cat_id].push_back(booking);
+    }
+
+    sql = sqlite3_mprintf(
+        "SELECT cat_id, id, icon, label, color, bg "
+        "FROM medical "
+        "ORDER BY cat_id"
+    );
+
+    vector<vector<string>> all_medical = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+
+    map<int, vector<vector<string>>> medical_by_cat;
+    for (const auto& med : all_medical) {
+        int cat_id = stoi(med[0]);
+        medical_by_cat[cat_id].push_back(med);
+    }
+
+    for (const auto& cat_row : cats_data) {
+        Json::Value cat;
+        int cat_id = stoi(cat_row[0]);
+
+        cat["id"] = cat_id;
+        cat["name"] = cat_row[1];
+        cat["description"] = cat_row[2];
+        cat["breed"] = cat_row[3];
+        cat["age"] = cat_row[4];
+        cat["filename"] = cat_row[5];
+
         Json::Value tags(Json::arrayValue);
-        if (!output[6].empty()) {
-            string tags_string = output[6];
+        if (!cat_row[6].empty()) {
+            string tags_string = cat_row[6];
             size_t pos = 0;
-            string tag;
             while ((pos = tags_string.find(',')) != string::npos) {
-                tag = tags_string.substr(0, pos);
-                tags.append(tag);
+                tags.append(tags_string.substr(0, pos));
                 tags_string.erase(0, pos + 1);
             }
             tags.append(tags_string);
         }
-        buffer_cat["tags"] = tags;
-        
+        cat["tags"] = tags;
+
         Json::Value bookings(Json::arrayValue);
-        
-        
-        char* bookings_sql = sqlite3_mprintf("SELECT user_id, start_time, end_time FROM bookings WHERE cat_id = %d AND status = 1 ORDER BY start_time",stoi(output[0]));
-        
-        db.Sql_request_callback(bookings_sql, [&bookings](vector<string> booking_output) {
-            Json::Value tek_booking(Json::arrayValue);
-            tek_booking.append(booking_output[0]);
-            tek_booking.append(booking_output[1]);
-            tek_booking.append(booking_output[2]);
-            bookings.append(tek_booking);
-        });
-        
-        sqlite3_free(bookings_sql);
-        buffer_cat["bookings"] = bookings;
+        if (bookings_by_cat.count(cat_id)) {
+            for (const auto& booking : bookings_by_cat[cat_id]) {
+                Json::Value tek_booking(Json::arrayValue);
+                tek_booking.append(booking[1]);
+                tek_booking.append(booking[2]);
+                tek_booking.append(booking[3]);
+                bookings.append(tek_booking);
+            }
+        }
+        cat["bookings"] = bookings;
 
         Json::Value medical(Json::arrayValue);
+        if (medical_by_cat.count(cat_id)) {
+            for (const auto& med : medical_by_cat[cat_id]) {
+                Json::Value med_record;
+                med_record["id"] = stoi(med[1]);
+                med_record["icon"] = med[2];
+                med_record["label"] = med[3];
+                med_record["color"] = med[4];
+                med_record["bg"] = med[5];
+                medical.append(med_record);
+            }
+        }
+        cat["medical"] = medical;
 
-        char* sql = sqlite3_mprintf("SELECT id, icon, label, color, bg FROM medical WHERE cat_id=%d",stoi(output[0]));
+        cats.append(cat);
+    }
 
-        db.Sql_request_callback(sql, [&medical](vector<string> medical_string) {
-            Json::Value med;
-            med["id"]=stoi(medical_string[0]);
-            med["icon"]=medical_string[1];
-            med["label"]=medical_string[2];
-            med["color"]=medical_string[3];
-            med["bg"]=medical_string[4];
-            medical.append(med);
-        });
-        sqlite3_free(sql);
-        buffer_cat["medical"]=medical;
-        cats.append(buffer_cat);
-    });
-
-    sqlite3_free(sql);
-    
     resp["status"] = "ok";
     resp["cats"] = cats;
-    
+
     auto response = HttpResponse::newHttpJsonResponse(resp);
     response->setStatusCode(k200OK);
     response->addHeader("Access-Control-Allow-Origin", "http://localhost:3000");

@@ -5,14 +5,14 @@
 using namespace drogon;
 using namespace std;
 
+
 DataBase db;
 
 
 
 
-
 int main() {
-
+    app().setThreadNum(4);
     app().setDocumentRoot("../images");
     app().setStaticFileHeaders({{"Cache-Control", "public, max-age=86400"}});
 
@@ -41,6 +41,7 @@ int main() {
     app().registerHandler("/bookings/admin", &Handler::handleOptions, {Options});
 
     cout<<"server is running"<<endl;
+    
     app().addListener("0.0.0.0", 8000).run();
 
     return 0;

@@ -31,11 +31,23 @@
     }
 
     bool DataBase::OpenDataBase(){
-        int answer_from_db = sqlite3_open("../DataBase/CatsDataBase.db",&db);
-        if(answer_from_db!=SQLITE_OK){
-            cout<<"Cannot oped DB: "<<sqlite3_errmsg(db)<<endl;
+        int answer_from_db = sqlite3_open("../DataBase/CatsDataBase.db", &db);
+        if(answer_from_db != SQLITE_OK){
+            cout << "Cannot open DB: " << sqlite3_errmsg(db) << endl;
             return false;
         }
+        
+        char* errMsg = nullptr;
+        sqlite3_exec(db, "PRAGMA journal_mode=WAL;", nullptr, nullptr, &errMsg);
+        if (errMsg) {
+            cout << "WAL mode error: " << errMsg << endl;
+            sqlite3_free(errMsg);
+        }
+        
+        sqlite3_exec(db, "PRAGMA cache_size = -20000;", nullptr, nullptr, nullptr);
+        
+        sqlite3_busy_timeout(db, 5000);
+        
         return true;
     }
 
