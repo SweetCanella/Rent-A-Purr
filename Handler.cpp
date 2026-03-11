@@ -66,21 +66,31 @@ string Handler::generateSessionId() {
 }
 
 string Handler::createSession(long long id){
-
     string sessionId = generateSessionId();
 
-    char* sql = sqlite3_mprintf("SELECT user_id FROM sessions WHERE user_id = %d",id);
-    if(!db.Sql_request_vector(sql).empty()){
-        sqlite3_free(sql);
+    char* sql = sqlite3_mprintf("SELECT user_id FROM sessions WHERE user_id = %d", id);
+    auto existing = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+    
+    if(!existing.empty()){
+        char* get_sql = sqlite3_mprintf("SELECT session_id FROM sessions WHERE user_id = %d", id);
+        auto existing_session = db.Sql_request_vector(get_sql);
+        sqlite3_free(get_sql);
+        
+        if (!existing_session.empty()) {
+            return existing_session[0][0];
+        }
         return "";
     }
+    
+    sql = sqlite3_mprintf("INSERT INTO sessions (session_id, user_id, expires_at) VALUES (%Q, %d, datetime('now', '+1 day'))", sessionId.c_str(), id);
+    bool success = db.Sql_exec(sql);
     sqlite3_free(sql);
-    sql = sqlite3_mprintf("INSERT INTO sessions (session_id, user_id, expires_at) VALUES (%Q, %d, datetime('now', '+1 day'))",sessionId.c_str(), id);
-    if (db.Sql_exec(sql)) {
-            sqlite3_free(sql);
-            return sessionId;
+    
+    if (success) {
+        return sessionId;
     }
-    sqlite3_free(sql);
+    
     return "";
 }
 
@@ -119,13 +129,16 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
         callback(response);
         return;
     }
+    
     string username = (*json)["username"].asString();
     string password = (*json)["password"].asString();
     string nickname = (*json)["nickname"].asString();
     password = hashPassword(password);
-    char *sql = sqlite3_mprintf("SELECT id FROM users WHERE username=%Q",username.c_str());
+    
+    char *sql = sqlite3_mprintf("SELECT id FROM users WHERE username=%Q", username.c_str());
     vector<vector<string>> check = db.Sql_request_vector(sql);
     sqlite3_free(sql);
+    
     if(!check.empty()){
         Json::Value bad_answer;
         bad_answer["status"]="bad";
@@ -137,7 +150,9 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
         callback(response);
         return;
     }
-    sql = sqlite3_mprintf("INSERT INTO users (username, password, nickname) VALUES (%Q, %Q, %Q)",username.c_str(),password.c_str(),nickname.c_str());
+    
+    sql = sqlite3_mprintf("INSERT INTO users (username, password, nickname) VALUES (%Q, %Q, %Q)", 
+                          username.c_str(), password.c_str(), nickname.c_str());
     if(!(db.Sql_exec(sql))){
         sqlite3_free(sql);
         Json::Value bad_answer;
@@ -156,15 +171,19 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
     string session_id = createSession(id);
 
     Json::Value resp;
-    resp["status"]="ok";
+    resp["status"] = "ok";
     resp["message"] = "User created";
-    resp["nickname"] = nickname;
+    resp["user"]["nickname"] = nickname;
+    resp["user"]["user_id"] = id;
 
     auto response = HttpResponse::newHttpJsonResponse(resp);
-    if(session_id!=""){
-        response->addHeader("Set-Cookie","session_id=" + session_id + "; Max-Age=86400; Path=/; HttpOnly; SameSite=None; Secure");
+    
+    if(session_id != ""){
+        string cookie = "session_id=" + session_id + "; Max-Age=86400; Path=/; HttpOnly; SameSite=None; Secure";
+        response->addHeader("Set-Cookie", cookie);
         response->addHeader("Access-Control-Allow-Credentials", "true");
-    } 
+    }
+    
     response->setStatusCode(k201Created);
     response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
     response->addHeader("Access-Control-Allow-Credentials", "true");
@@ -190,9 +209,10 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
     string username = (*json)["username"].asString();
     string password = (*json)["password"].asString();
 
-    char* sql = sqlite3_mprintf("SELECT id, password, nickname FROM users WHERE username=%Q",username.c_str());
+    char* sql = sqlite3_mprintf("SELECT id, password, nickname FROM users WHERE username=%Q", username.c_str());
     vector<vector<string>> check = db.Sql_request_vector(sql);
     sqlite3_free(sql);
+    
     if(check.empty()){
         Json::Value bad_answer;
         bad_answer["status"]="bad";
@@ -204,7 +224,8 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
         callback(response);
         return;
     }
-    if(!verifyPassword(password,check[0][1])){
+    
+    if(!verifyPassword(password, check[0][1])){
         Json::Value bad_answer;
         bad_answer["status"]="bad";
         bad_answer["message"]="Wrong username or password";
@@ -216,19 +237,22 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
         return;
     }
 
+    string session_id = createSession(stoi(check[0][0]));
+
     Json::Value resp;
     resp["status"] = "ok";
     resp["message"] = "User authorized";
     resp["user"]["nickname"] = check[0][2];
     resp["user"]["user_id"] = stoi(check[0][0]);
+    
     auto response = HttpResponse::newHttpJsonResponse(resp);
 
-    string session_id = createSession(stoi(check[0][0]));
-
-    if(session_id!=""){
-        response->addHeader("Set-Cookie","session_id=" + session_id + "; Max-Age=86400; Path=/; HttpOnly; SameSite=None; Secure");
-        response->addHeader("Access-Control-Allow-Credentials", "true");        
+    if(session_id != ""){
+        string cookie = "session_id=" + session_id + "; Max-Age=86400; Path=/; HttpOnly; SameSite=None; Secure";
+        response->addHeader("Set-Cookie", cookie);
+        response->addHeader("Access-Control-Allow-Credentials", "true");
     }
+    
     response->setStatusCode(k200OK);
     response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
     response->addHeader("Access-Control-Allow-Credentials", "true");
@@ -1460,10 +1484,7 @@ void Handler::AddAdminBooking(const HttpRequestPtr& request, function<void(const
 void Handler::GetUserData(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
     cout << request->getMethodString() << " " << request->getPath() << endl;
 
-
     string sessionId = request->getCookie("session_id");
-    cout<<"session id is == "<<sessionId<<endl;
-
     int user_id = checkAuth(sessionId);
     
     if (user_id == -1) {
@@ -1478,9 +1499,10 @@ void Handler::GetUserData(const HttpRequestPtr& request, function<void(const Htt
         return;
     }
 
-    char* sql = sqlite3_mprintf("SELECT id, nickname FROM users WHERE id=%d",user_id);
+    char* sql = sqlite3_mprintf("SELECT id, nickname FROM users WHERE id=%d", user_id);
     vector<vector<string>> user_data_vector = db.Sql_request_vector(sql);
     sqlite3_free(sql);
+    
     if(user_data_vector.empty()){
         Json::Value resp;
         resp["status"] = "bad";
@@ -1494,22 +1516,22 @@ void Handler::GetUserData(const HttpRequestPtr& request, function<void(const Htt
     }
 
     Json::Value user_data;
-    user_data["user_id"]=stoi(user_data_vector[0][0]);
-    user_data["nickname"]=user_data_vector[0][1];
+    user_data["user_id"] = stoi(user_data_vector[0][0]);
+    user_data["nickname"] = user_data_vector[0][1];
 
-    sql = sqlite3_mprintf("SELECT cat_id, user_id, start_time, end_time, status FROM bookings WHERE user_id=%d",user_id);
+    sql = sqlite3_mprintf("SELECT cat_id, user_id, start_time, end_time, status FROM bookings WHERE user_id=%d", user_id);
     Json::Value bookings(Json::arrayValue);
-    db.Sql_request_callback(sql,[&bookings](vector<string> bookings_string){
+    db.Sql_request_callback(sql, [&bookings](vector<string> bookings_string){
         Json::Value booking;
-        booking["cat_id"]=stoi(bookings_string[0]);
-        booking["user_id"]=stoi(bookings_string[1]);
-        booking["start_time"]=bookings_string[2];
-        booking["end_time"]=bookings_string[3];
-        booking["status"]=stoi(bookings_string[4]);
+        booking["cat_id"] = stoi(bookings_string[0]);
+        booking["user_id"] = stoi(bookings_string[1]);
+        booking["start_time"] = bookings_string[2];
+        booking["end_time"] = bookings_string[3];
+        booking["status"] = stoi(bookings_string[4]);
         bookings.append(booking);
     });
     sqlite3_free(sql);
-    user_data["bookings"]=bookings;
+    user_data["bookings"] = bookings;
 
     Json::Value resp;
     resp["status"] = "ok";
