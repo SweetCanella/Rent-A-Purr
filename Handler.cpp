@@ -108,7 +108,6 @@ int Handler::getUserIdFromSession(const string& sessionId) {
         sqlite3_free(sql);
         
         if (!result.empty()) {
-            cout<<"USER ID IS "<<result[0][0]<<endl;
             return stoi(result[0][0]);
         }
         return -1;
@@ -1549,7 +1548,7 @@ void Handler::GetUserData(const HttpRequestPtr& request, function<void(const Htt
             filenames.append(photos_string);
         }
         
-        booking["filenames"] = filenames;
+        booking["filename"] = filenames;
         bookings.append(booking);
     });
     
