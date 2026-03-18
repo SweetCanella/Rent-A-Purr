@@ -23,8 +23,8 @@ export default function Layout() {
         api.getProfile().then(res => {
             setUser(res.user);
             setIsAuthenticated(true);
-            setIsLoading(false);
         }).catch(() => {
+        }).finally(() => {
             setIsLoading(false);
         });
     },[]);
@@ -50,7 +50,12 @@ export default function Layout() {
     };
 
     const handleLogout = async () => {
-        await api.logout();
+        try {
+            await api.logout(); // Говорим бекенду удалить сессию
+        } catch (e) {
+            console.error("Ошибка при выходе:", e);
+        }
+        // В любом случае очищаем состояние на фронтенде
         setIsAuthenticated(false);
         setUser(null);
         setShowAccountMenu(false);

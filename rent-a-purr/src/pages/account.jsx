@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, PawPrint, ShieldCheck, User } from 'lucide-react';
-import { api } from '../api';
+import { api, getImageUrl } from '../api'; // Обязательно импортируем getImageUrl
+
+// Защищенные функции форматирования дат
+const formatDate = (dateString) => {
+    if (!dateString) return 'Дата неизвестна';
+    try {
+        return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(dateString.replace(' ', 'T')));
+    } catch (e) { return dateString; }
+};
+
+const formatTime = (dateString) => {
+    if (!dateString) return '';
+    try {
+        return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date(dateString.replace(' ', 'T')));
+    } catch (e) { return dateString; }
+};
 
 export default function Account() {
     const [profile, setProfile] = useState(null);
@@ -11,16 +26,20 @@ export default function Account() {
         Promise.all([api.getProfile(), api.getCats()])
             .then(([profRes, catsRes]) => {
                 setProfile(profRes.user);
-                setCats(catsRes.cats);
+                setCats(catsRes.cats ||[]); // Защита от null
                 setLoading(false);
             })
             .catch(e => {
+                console.error(e);
                 setLoading(false);
             });
     },[]);
 
     if (loading) return <div className="p-8 text-center font-bold text-slate-400">Загрузка профиля...</div>;
     if (!profile) return <div className="p-8 text-center font-bold text-[#FF2B4A]">Не удалось загрузить профиль. Вы авторизованы?</div>;
+
+    // Безопасное получение списка аренд
+    const userBookings = profile.bookings ||[];
 
     return (
         <div className="min-h-full bg-white text-slate-900 font-m3 pb-12 relative overflow-hidden">
@@ -37,11 +56,12 @@ export default function Account() {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
+                    {/* Данные профиля */}
                     <div className="lg:col-span-4 flex flex-col gap-6">
                         <div className="bg-white rounded-[32px] p-6 shadow-sm border-2 border-[#F6828C]/10 relative overflow-hidden">
                             <div className="flex flex-col items-center text-center relative z-10 pt-4">
                                 <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-4"><User size={40} className="text-slate-400"/></div>
-                                <h2 className="text-3xl font-extrabold text-slate-800 mb-1">{profile.nickname}</h2>
+                                <h2 className="text-3xl font-extrabold text-slate-800 mb-1">{profile.nickname || "Пользователь"}</h2>
                                 <p className="text-slate-500 mb-8 flex items-center gap-1.5 font-medium"><ShieldCheck size={18} className="text-[#00D26A]" /> ID: {profile.user_id}</p>
                                 <div className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 text-left">
                                     <p className="text-xs text-slate-400 font-bold uppercase">Email</p>
@@ -51,32 +71,48 @@ export default function Account() {
                         </div>
                     </div>
 
+                    {/* Мои аренды */}
                     <div className="lg:col-span-8">
                         <h2 className="text-3xl font-extrabold mb-6 text-slate-800 px-2 tracking-tight">Мои аренды</h2>
-                        {profile.bookings.length === 0 ? (
+                        {userBookings.length === 0 ? (
                             <div className="bg-slate-50 rounded-[32px] p-12 text-center border-2 border-dashed border-slate-200">
                                 <PawPrint size={64} className="text-[#F6828C] mb-6 mx-auto" />
                                 <h3 className="text-2xl font-extrabold text-slate-800 mb-2">У вас пока нет активных аренд</h3>
                             </div>
                         ) : (
                             <div className="space-y-6">
-                                {profile.bookings.map((booking, idx) => {
+                                {userBookings.map((booking, idx) => {
                                     const cat = cats.find(c => c.id === booking.cat_id) || {};
+
+                                    // Ищем фотку сначала в самой брони (как сделал Женя), если нет - то у кота
+                                    const imageSource = booking.filename || booking.filenames || cat.filename || cat.filenames;
+                                    const coverImage = getImageUrl(imageSource);
+
                                     return (
                                         <div key={idx} className="bg-white rounded-[32px] p-4 sm:p-6 shadow-sm border-2 border-slate-100 flex flex-col sm:flex-row gap-6">
+
                                             <div className="relative w-full sm:w-48 h-48 flex-shrink-0">
-                                                <img src={cat.filename?.[0]} alt="cat" className="w-full h-full object-cover rounded-[24px]"/>
+                                                <img
+                                                    src={coverImage}
+                                                    alt={cat.name || "Кот"}
+                                                    className="w-full h-full object-cover rounded-[24px]"
+                                                    onError={(e) => { e.target.src = 'https://via.placeholder.com/400x400?text=Нет+фото' }}
+                                                />
                                             </div>
+
                                             <div className="flex-1 flex flex-col justify-center">
                                                 <div className="flex justify-between items-start gap-2 mb-2">
-                                                    <div><h3 className="text-2xl font-extrabold">{cat.name || "Кот удален"}</h3><p className="text-slate-500 font-bold">{cat.breed}</p></div>
+                                                    <div>
+                                                        <h3 className="text-2xl font-extrabold">{cat.name || "Кот удален"}</h3>
+                                                        <p className="text-slate-500 font-bold">{cat.breed || "Порода неизвестна"}</p>
+                                                    </div>
                                                     <span className={booking.status === 1 ? "bg-[#00D26A]/10 text-[#00A855] px-4 py-1.5 rounded-full text-xs font-extrabold uppercase" : "bg-[#FFB300]/10 text-[#B37E00] px-4 py-1.5 rounded-full text-xs font-extrabold uppercase"}>
-                                {booking.status === 1 ? "Подтверждено" : "Ожидает"}
-                            </span>
+                                                        {booking.status === 1 ? "Подтверждено" : "Ожидает"}
+                                                    </span>
                                                 </div>
                                                 <div className="mt-4 bg-slate-50 px-4 py-3 rounded-2xl text-sm">
-                                                    <span className="flex items-center gap-2 text-slate-500 font-bold"><Calendar size={16} className="text-[#7838F5]"/> {booking.start_time.substring(0, 10)}</span>
-                                                    <span className="flex items-center gap-2 text-slate-800 font-extrabold mt-1"><Clock size={16} className="text-[#FF6B00]"/> {booking.start_time.substring(11, 16)} — {booking.end_time.substring(11, 16)}</span>
+                                                    <span className="flex items-center gap-2 text-slate-500 font-bold"><Calendar size={16} className="text-[#7838F5]"/> {formatDate(booking.start_time)}</span>
+                                                    <span className="flex items-center gap-2 text-slate-800 font-extrabold mt-1"><Clock size={16} className="text-[#FF6B00]"/> {formatTime(booking.start_time)} — {formatTime(booking.end_time)}</span>
                                                 </div>
                                             </div>
                                         </div>

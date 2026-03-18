@@ -247,9 +247,9 @@ export const api = {
     }),
 
     // Если на бекенде есть ручка для логаута - добавьте её вызов. Если нет, достаточно стереть cookie.
-    logout: async () => {
-        // await fetchAPI('/logout', { method: 'POST' });
-    },
+    logout: () => fetchAPI('/logout', {
+        method: 'POST'
+    }),
 
     getProfile: () => fetchAPI('/profile', {
         method: 'GET'
