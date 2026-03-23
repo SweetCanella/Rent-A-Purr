@@ -188,6 +188,7 @@ void Handler::RegisterUser(const HttpRequestPtr& request,function<void(const Htt
     resp["user"]["nickname"] = nickname;
     resp["user"]["user_id"] = id;
     resp["user"]["phone"] = phone;
+    resp["user"]["access_level"] = 0;
 
     auto response = HttpResponse::newHttpJsonResponse(resp);
     
@@ -222,7 +223,7 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
     string username = (*json)["username"].asString();
     string password = (*json)["password"].asString();
 
-    char* sql = sqlite3_mprintf("SELECT id, password, nickname, phone FROM users WHERE username=%Q", username.c_str());
+    char* sql = sqlite3_mprintf("SELECT id, password, nickname, phone, access_level FROM users WHERE username=%Q", username.c_str());
     vector<vector<string>> check = db.Sql_request_vector(sql);
     sqlite3_free(sql);
     
@@ -258,6 +259,7 @@ void Handler::AutoriseUser(const HttpRequestPtr& request,function<void(const Htt
     resp["user"]["nickname"] = check[0][2];
     resp["user"]["user_id"] = stoi(check[0][0]);
     resp["user"]["phone"] = check[0][3];
+    resp["user"]["access_level"] = stoi(check[0][4]);
     
     auto response = HttpResponse::newHttpJsonResponse(resp);
 
@@ -1533,7 +1535,7 @@ void Handler::GetUserData(const HttpRequestPtr& request, function<void(const Htt
     Json::Value user_data;
     user_data["user_id"] = stoi(user_data_vector[0][0]);
     user_data["nickname"] = user_data_vector[0][1];
-    user_data["status"]=stoi(user_data_vector[0][2]);
+    user_data["access_level"]=stoi(user_data_vector[0][2]);
     user_data["phone"]=user_data_vector[0][3];
 
     sql = sqlite3_mprintf(
