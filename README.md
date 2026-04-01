@@ -1,1 +1,1 @@
-Rent a purr
+Rent'A'Purr
