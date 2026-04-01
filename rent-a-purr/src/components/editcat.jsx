@@ -12,7 +12,7 @@ const COLOR_PRESETS =[
     { id: 'yellow', bg: '#FFB300', color: '#FFFFFF' }
 ];
 
-// Дефолтные опции (можно дополнить теми, что уже есть у кота)
+
 const DEFAULT_MEDICAL_OPTIONS =[
     { iconName: 'syringe', label: 'Привит', bg: '#FF2B4A', color: '#FFFFFF' },
     { iconName: 'heartPulse', label: 'Здоров', bg: '#00D26A', color: '#FFFFFF' },
@@ -22,10 +22,10 @@ const DEFAULT_MEDICAL_OPTIONS =[
 export default function EditCat({ cat, onClose, onSubmit }) {
     const [tags, setTags] = useState((cat.tags ||[]).join(', '));
 
-    // Инициализируем выбранную медицину тем, что уже есть у кота
+
     const[selectedMedical, setSelectedMedical] = useState(cat.medical ||[]);
 
-    // Собираем все опции: дефолтные + те, что уже есть у кота (чтобы они отображались как кнопки)
+
     const initialCustomOptions = (cat.medical ||[]).filter(cm => !DEFAULT_MEDICAL_OPTIONS.find(dm => dm.label === cm.label));
     const [customMedical, setCustomMedical] = useState(initialCustomOptions);
 

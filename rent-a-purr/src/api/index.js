@@ -190,20 +190,20 @@ export const getImageUrl = (fileData) => {
 };
 
 
-// Универсальная функция для отправки запросов
+
 async function fetchAPI(endpoint, options = {}) {
     const config = {
         ...options,
         credentials: 'include',
     };
 
-    // Если передаем JSON (а не FormData с файлом), автоматически добавляем заголовки
+
     if (options.body && !(options.body instanceof FormData)) {
         config.headers = {
             'Content-Type': 'application/json',
             ...config.headers,
         };
-        // Превращаем JS объект в строку JSON
+
         if (typeof options.body === 'object') {
             config.body = JSON.stringify(options.body);
         }
@@ -213,7 +213,7 @@ async function fetchAPI(endpoint, options = {}) {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
         const data = await response.json();
 
-        // Обрабатываем ошибки по вашей схеме (4xx, 5xx или status: "bad")
+
         if (!response.ok || data.status === 'bad') {
             throw new Error(data.message || data.error || 'Произошла ошибка на сервере');
         }
@@ -243,11 +243,11 @@ export const api = {
       в URL: fetchAPI(`/login?username=${data.username}&password=${data.password}`)
     */
     login: (data) => fetchAPI('/login', {
-        method: 'POST', // Рекомендую поменять на POST в бекенде
-        body: data      // { username, password }
+        method: 'POST',
+        body: data
     }),
 
-    // Если на бекенде есть ручка для логаута - добавьте её вызов. Если нет, достаточно стереть cookie.
+
     logout: () => fetchAPI('/logout', {
         method: 'POST'
     }),
@@ -263,13 +263,19 @@ export const api = {
 
     addCat: (formData) => fetchAPI('/cats', {
         method: 'POST',
-        body: formData // Передаем FormData напрямую (браузер сам поставит Content-Type: multipart/form-data)
+        body: formData // FormData
     }),
 
     updateCat: (id, data) => fetchAPI(`/cats/${id}`, {
         method: 'PUT',
         body: data // { tags, medical }
     }),
+
+    getUsers: () => fetchAPI('/users', { method: 'GET' }),
+
+    adminUserCreate: (data) => fetchAPI('/admin/UserCreate', { method: 'POST', body: data }),
+
+
 
     // --- БРОНИРОВАНИЯ (КЛИЕНТ) ---
     addBooking: (data) => fetchAPI('/bookings', {
@@ -295,5 +301,5 @@ export const api = {
     deleteAdminBooking: (data) => fetchAPI('/bookings/admin', {
         method: 'DELETE',
         body: data // { booking_id }
-    }),
+    })
 };

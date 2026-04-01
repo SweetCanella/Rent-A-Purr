@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Activity, Check, PawPrint } from 'lucide-react';
 import CatModal from '../components/card';
-// ИМПОРТИРУЕМ getImageUrl из нашего API:
+
 import { api, getImageUrl } from '../api';
 
 export default function Catalogue() {

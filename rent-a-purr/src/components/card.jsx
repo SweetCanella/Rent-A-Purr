@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
-// --- Иконки (Встроенные SVG для обхода багов импорта) ---
+
 const X = ({ className, strokeWidth = 2 }) => (<svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>);
 const CalendarDays = ({ className, strokeWidth = 2 }) => (<svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>);
 const Clock = ({ className, strokeWidth = 2 }) => (<svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>);
@@ -26,7 +26,7 @@ export default function CatModal({ cat, onClose, onSubmitBooking }) {
     const [isBooking, setIsBooking] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
-    // Генерируем 30 дней для календарика
+
     const days = useMemo(() => {
         const arr =[];
         const today = new Date();
@@ -53,7 +53,7 @@ export default function CatModal({ cat, onClose, onSubmitBooking }) {
 
     const isValid = pickup.day !== null && pickup.time !== null && dropoff.day !== null && dropoff.time !== null;
 
-    // Форматируем выбранную дату для бекенда
+
     const getFormattedDate = (dayId, timeIdx) => {
         const dayObj = days.find(d => d.id === dayId);
         if (!dayObj) return null;
@@ -69,7 +69,7 @@ export default function CatModal({ cat, onClose, onSubmitBooking }) {
         setIsBooking(true);
 
         if (onSubmitBooking) {
-            // Бронирование через API
+
             const startStr = getFormattedDate(pickup.day, pickup.time);
             const endStr = getFormattedDate(dropoff.day, dropoff.time);
 
@@ -79,10 +79,10 @@ export default function CatModal({ cat, onClose, onSubmitBooking }) {
                 setIsSuccess(true);
                 setTimeout(() => { onClose(); setIsSuccess(false); }, 2000);
             } else {
-                setIsBooking(false); // Ошибка вывелась через alert в каталоге
+                setIsBooking(false);
             }
         } else {
-            // Если компонент вызван без API (fallback)
+
             setTimeout(() => {
                 setIsBooking(false); setIsSuccess(true);
                 setTimeout(() => { onClose(); setIsSuccess(false); }, 2000);
@@ -123,7 +123,7 @@ export default function CatModal({ cat, onClose, onSubmitBooking }) {
     else if (pickup.time === null) buttonText = 'Выберите время: Забрать';
     else if (dropoff.day === null || dropoff.time === null) buttonText = 'Выберите дату: Вернуть';
 
-    // Используем Portal для правильного наложения поверх Sidebar (nav)
+
     return createPortal(
         <>
             {/* Темный фон */}

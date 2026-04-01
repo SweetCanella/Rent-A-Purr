@@ -14,12 +14,12 @@ export default function Layout() {
     const [user, setUser] = useState(null);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [authMode, setAuthMode] = useState('login');
-    // Добавлено поле phone
+
     const [authForm, setAuthForm] = useState({ username: '', password: '', nickname: '', phone: '' });
     const [authError, setAuthError] = useState('');
     const [isLoading, setIsLoading] = useState(true);
 
-    // Проверка сессии при загрузке
+
     useEffect(() => {
         api.getProfile().then(res => {
             setUser(res.user);
@@ -35,7 +35,7 @@ export default function Layout() {
         setAuthError('');
         try {
             if (authMode === 'register') {
-                // Добавлен phone в отправку
+
                 await api.register({
                     username: authForm.username,
                     password: authForm.password,
@@ -48,7 +48,7 @@ export default function Layout() {
             }
             setIsAuthenticated(true);
             setShowAuthModal(false);
-            // Сброс формы теперь включает phone
+
             setAuthForm({ username: '', password: '', nickname: '', phone: '' });
         } catch (err) {
             setAuthError(err.message);

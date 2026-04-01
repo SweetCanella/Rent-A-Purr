@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, PawPrint, ShieldCheck, User } from 'lucide-react';
-import { api, getImageUrl } from '../api'; // Обязательно импортируем getImageUrl
+import { api, getImageUrl } from '../api'; // getImageUrl
 
-// Защищенные функции форматирования дат
+
 const formatDate = (dateString) => {
     if (!dateString) return 'Дата неизвестна';
     try {
@@ -38,7 +38,7 @@ export default function Account() {
     if (loading) return <div className="p-8 text-center font-bold text-slate-400">Загрузка профиля...</div>;
     if (!profile) return <div className="p-8 text-center font-bold text-[#FF2B4A]">Не удалось загрузить профиль. Вы авторизованы?</div>;
 
-    // Безопасное получение списка аренд
+
     const userBookings = profile.bookings ||[];
 
     return (
@@ -64,8 +64,8 @@ export default function Account() {
                                 <h2 className="text-3xl font-extrabold text-slate-800 mb-1">{profile.nickname || "Пользователь"}</h2>
                                 <p className="text-slate-500 mb-8 flex items-center gap-1.5 font-medium"><ShieldCheck size={18} className="text-[#00D26A]" /> ID: {profile.user_id}</p>
                                 <div className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 text-left">
-                                    <p className="text-xs text-slate-400 font-bold uppercase">Email</p>
-                                    <p className="text-slate-700 font-bold truncate">{profile.email || "Нет email"}</p>
+                                    <p className="text-xs text-slate-400 font-bold uppercase">Телефон</p>
+                                    <p className="text-slate-700 font-bold truncate">{profile.phone || "Нет номера телефона"}</p>
                                 </div>
                             </div>
                         </div>
@@ -84,7 +84,7 @@ export default function Account() {
                                 {userBookings.map((booking, idx) => {
                                     const cat = cats.find(c => c.id === booking.cat_id) || {};
 
-                                    // Ищем фотку сначала в самой брони (как сделал Женя), если нет - то у кота
+
                                     const imageSource = booking.filename || booking.filenames || cat.filename || cat.filenames;
                                     const coverImage = getImageUrl(imageSource);
 

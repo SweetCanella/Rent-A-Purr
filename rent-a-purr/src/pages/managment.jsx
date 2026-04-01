@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit3, PawPrint, Calendar, Phone, Mail, User, CheckCircle, ListTodo } from 'lucide-react';
+import { Plus, Trash2, Edit3, PawPrint, Calendar, Phone, User, CheckCircle, ListTodo, UserPlus } from 'lucide-react';
 import AddCat from '../components/addcat';
 import EditCat from '../components/editcat';
 import AddReq from '../components/addreq';
 import EditReq from '../components/editreq';
-// ИМПОРТИРУЕМ getImageUrl из API:
+import AddUser from '../components/adduser';
 import { api, getImageUrl } from '../api';
 
-// Защищенная утилита форматирования даты (не упадет, если придет undefined)
 const formatDateTime = (dateString) => {
-    if (!dateString) return 'Дата неизвестна';
+    if (!dateString) return '';
     try {
         return new Intl.DateTimeFormat('ru-RU', {
             day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
@@ -20,36 +19,30 @@ const formatDateTime = (dateString) => {
 };
 
 export default function Management() {
-    const [activeTab, setActiveTab] = useState('cats');
+    const[activeTab, setActiveTab] = useState('cats');
     const [cats, setCats] = useState([]);
-    const [bookings, setBookings] = useState([]);
+    const[bookings, setBookings] = useState([]);
+    const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [isAddCatOpen, setIsAddCatOpen] = useState(false);
     const [catToEdit, setCatToEdit] = useState(null);
     const[isAddReqOpen, setIsAddReqOpen] = useState(false);
     const [reqToEdit, setReqToEdit] = useState(null);
+    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const [catsRes, bookingsRes] = await Promise.all([
+            const[catsRes, bookingsRes, usersRes] = await Promise.all([
                 api.getCats(),
-                api.getAdminBookings().catch(() => ({ bookings: [] }))
+                api.getAdminBookings().catch(() => ({ bookings: [] })),
+                api.getUsers().catch(() => ({ users:[] }))
             ]);
-
             setCats(catsRes.cats || []);
-            const fetchedBookings = bookingsRes.bookings || [];
-            const mappedBookings = fetchedBookings.map(b => ({
-                ...b,
-                status: b.status !== undefined ? b.status : 1,
-                email: b.email || 'Нет email'
-            }));
-
-            setBookings(mappedBookings);
-
+            setBookings(bookingsRes.bookings ||[]);
+            setUsers(usersRes.users ||[]);
         } catch (e) {
-            console.error("Ошибка загрузки данных админки:", e);
         } finally {
             setLoading(false);
         }
@@ -57,7 +50,6 @@ export default function Management() {
 
     useEffect(() => { loadData(); },[]);
 
-    // --- Обработчики Котов ---
     const handleAddCat = async (newCatData) => {
         try {
             const formData = new FormData();
@@ -70,14 +62,12 @@ export default function Management() {
                 formData.append('tags', newCatData.tags.join(','));
             }
 
-            // Добавляем ВСЕ файлы под одним ключом 'photos'
             if (newCatData.photos && newCatData.photos.length > 0) {
                 newCatData.photos.forEach(file => {
                     formData.append('photos', file);
                 });
             }
 
-            // Форматируем медицинские данные кратно 4
             if (newCatData.medical && newCatData.medical.length > 0) {
                 const medString = newCatData.medical.map(m => `${m.iconName || 'stethoscope'},${m.label},${m.color},${m.bg}`).join(',');
                 formData.append('medical', medString);
@@ -87,13 +77,11 @@ export default function Management() {
             setIsAddCatOpen(false);
             loadData();
         } catch (e) {
-            alert("Ошибка: " + e.message);
         }
     };
 
     const handleUpdateCat = async (updatedCatData) => {
         try {
-            // По спецификации PUT /cats/{id} принимает только tags и medical
             const dataToUpdate = {
                 tags: (updatedCatData.tags ||[]).join(','),
             };
@@ -105,46 +93,40 @@ export default function Management() {
             setCatToEdit(null);
             loadData();
         } catch (e) {
-            alert("Ошибка: " + e.message);
         }
     };
 
     const handleDeleteCat = async (catId) => {
         if (window.confirm("Вы уверены, что хотите удалить кота?")) {
-            // Здесь в будущем будет api.deleteCat(catId)
             setCats(cats.filter(c => c.id !== catId));
         }
     };
 
-    // --- Обработчики Аренд ---
+    const handleAddUser = async (newUserData) => {
+        try {
+            await api.adminUserCreate(newUserData);
+            setIsAddUserOpen(false);
+            loadData();
+        } catch (e) {
+        }
+    };
+
     const handleAddBooking = async (newBookingData) => {
         try {
-            await api.addAdminBooking({
-                cat_id: newBookingData.catId,
-                email: newBookingData.customer.email || 'admin_added@test.ru',
-                start_time: newBookingData.time[0],
-                end_time: newBookingData.time[1]
-            });
+            await api.addAdminBooking(newBookingData);
             setIsAddReqOpen(false);
             loadData();
         } catch (e) {
-            alert("Ошибка: " + e.message);
         }
     };
 
     const handleUpdateBooking = async (updatedBookingData) => {
         try {
             await api.deleteAdminBooking({ booking_id: updatedBookingData.id });
-            await api.addAdminBooking({
-                cat_id: updatedBookingData.catId,
-                email: updatedBookingData.customer.email || 'admin_added@test.ru',
-                start_time: updatedBookingData.time[0],
-                end_time: updatedBookingData.time[1]
-            });
+            await api.addAdminBooking(updatedBookingData);
             setReqToEdit(null);
             loadData();
         } catch (e) {
-            alert("Ошибка: " + e.message);
         }
     };
 
@@ -153,7 +135,6 @@ export default function Management() {
             await api.confirmAdminBooking({ booking_id: bookingId });
             loadData();
         } catch (e) {
-            alert("Ошибка: " + e.message);
         }
     };
 
@@ -163,13 +144,12 @@ export default function Management() {
                 await api.deleteAdminBooking({ booking_id: bookingId });
                 loadData();
             } catch (e) {
-                alert("Ошибка: " + e.message);
             }
         }
     };
 
     if (loading) {
-        return <div className="h-full flex items-center justify-center font-bold text-slate-400">Загрузка данных админки...</div>;
+        return <div className="h-full flex items-center justify-center font-bold text-slate-400">Загрузка...</div>;
     }
 
     return (
@@ -195,28 +175,32 @@ export default function Management() {
                     </button>
                 </div>
 
-                {activeTab === 'cats' && (
-                    <button onClick={() => setIsAddCatOpen(true)} className="bg-[#F6828C] text-white px-6 py-3.5 rounded-2xl font-extrabold shadow-lg shadow-[#F6828C]/30 hover:bg-[#FF2B4A] transition-colors flex items-center gap-2">
-                        <Plus size={22} strokeWidth={3} /><span>Новый кот</span>
-                    </button>
-                )}
-                {activeTab === 'bookings' && (
-                    <button onClick={() => setIsAddReqOpen(true)} className="bg-[#7838F5] text-white px-6 py-3.5 rounded-2xl font-extrabold shadow-lg shadow-[#7838F5]/30 hover:bg-[#6025D1] transition-colors flex items-center gap-2">
-                        <Plus size={22} strokeWidth={3} /><span>Добавить аренду</span>
-                    </button>
-                )}
+                <div className="flex gap-3">
+                    {activeTab === 'cats' && (
+                        <button onClick={() => setIsAddCatOpen(true)} className="bg-[#F6828C] text-white px-6 py-3.5 rounded-2xl font-extrabold shadow-lg shadow-[#F6828C]/30 hover:bg-[#FF2B4A] transition-colors flex items-center gap-2">
+                            <Plus size={22} strokeWidth={3} /><span>Новый кот</span>
+                        </button>
+                    )}
+                    {activeTab === 'bookings' && (
+                        <>
+                            <button onClick={() => setIsAddUserOpen(true)} className="bg-[#00C4D1] text-white px-6 py-3.5 rounded-2xl font-extrabold shadow-lg shadow-[#00C4D1]/30 hover:bg-[#00A8B3] transition-colors flex items-center gap-2">
+                                <UserPlus size={22} strokeWidth={3} /><span>Создать юзера</span>
+                            </button>
+                            <button onClick={() => setIsAddReqOpen(true)} className="bg-[#7838F5] text-white px-6 py-3.5 rounded-2xl font-extrabold shadow-lg shadow-[#7838F5]/30 hover:bg-[#6025D1] transition-colors flex items-center gap-2">
+                                <Plus size={22} strokeWidth={3} /><span>Добавить аренду</span>
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-
-                {/* === Вкладка КОТЫ === */}
                 {activeTab === 'cats' && (
                     <div className="animate-tab">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {cats.map((cat) => (
                                 <div key={cat.id} className="bg-white rounded-[32px] p-4 sm:p-6 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border-2 border-slate-100 hover:border-[#F6828C]/30 transition-colors flex flex-col sm:flex-row gap-6">
                                     <div className="relative w-full sm:w-48 h-56 sm:h-auto flex-shrink-0">
-                                        {/* ЗАЩИЩЕННАЯ КАРТИНКА */}
                                         <img
                                             src={getImageUrl(cat?.filenames)}
                                             alt={cat.name || 'Кот'}
@@ -230,7 +214,6 @@ export default function Management() {
                                         <p className="text-slate-500 font-bold truncate mb-2">{cat.breed || 'Неизвестная порода'}</p>
                                         <p className="text-slate-600 font-medium text-sm mb-4 line-clamp-2">{cat.description || 'Нет описания'}</p>
 
-                                        {/* ЗАЩИЩЕННЫЕ ТЕГИ */}
                                         <div className="flex flex-wrap gap-2 mb-4">
                                             {(cat.tags ||[]).map((tag, index) => (
                                                 <span key={index} className="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-xl">{tag}</span>
@@ -252,11 +235,8 @@ export default function Management() {
                     </div>
                 )}
 
-                {/* === Вкладка АРЕНДЫ === */}
                 {activeTab === 'bookings' && (
                     <div className="animate-tab space-y-10">
-
-                        {/* ОЖИДАЮЩИЕ (status: 0) */}
                         {bookings.filter(b => b.status === 0).length > 0 && (
                             <div>
                                 <h2 className="text-2xl font-extrabold mb-6 text-slate-800 px-2 flex items-center gap-3"><span className="w-4 h-4 rounded-full bg-[#FFB300] inline-block"></span>Новые запросы</h2>
@@ -266,7 +246,6 @@ export default function Management() {
                                         return (
                                             <div key={booking.id} className="bg-white rounded-[32px] p-6 shadow-sm border-2 border-[#FFB300]/30 flex flex-col xl:flex-row gap-6">
                                                 <div className="flex items-center gap-4 xl:w-1/4">
-                                                    {/* ЗАЩИЩЕННАЯ КАРТИНКА */}
                                                     <img
                                                         src={getImageUrl(cat?.filenames)}
                                                         className="w-20 h-20 rounded-[18px] object-cover"
@@ -276,13 +255,13 @@ export default function Management() {
                                                     <div><p className="text-xs font-bold text-slate-400 uppercase">Кот</p><h4 className="text-xl font-extrabold text-slate-800">{cat?.name || booking.cat_name || 'Неизвестно'}</h4></div>
                                                 </div>
                                                 <div className="flex-1 bg-slate-50 rounded-[20px] p-4 flex flex-col justify-center border border-slate-100">
-                                                    <p className="flex items-center gap-2 text-slate-800 font-bold"><User size={16} className="text-[#00C4D1]"/> {booking.nickname}</p>
-                                                    <p className="flex items-center gap-2 text-slate-600 font-medium text-sm"><Mail size={16} className="text-[#7838F5]"/> {booking.email}</p>
+                                                    <p className="flex items-center gap-2 text-slate-800 font-bold"><User size={16} className="text-[#00C4D1]"/> {booking.nickname || booking.username}</p>
+                                                    <p className="flex items-center gap-2 text-slate-600 font-medium text-sm"><Phone size={16} className="text-[#FF6B00]"/> {booking.phone}</p>
                                                 </div>
                                                 <div className="flex-1 flex flex-col justify-between">
                                                     <div className="mb-4">
                                                         <p className="flex items-center gap-2 text-slate-800 font-bold mb-1"><Calendar size={18} className="text-[#F6828C]"/> {formatDateTime(booking.start_time)}</p>
-                                                        <p className="flex items-center gap-2 text-slate-500 font-medium text-sm ml-7">до {formatDateTime(booking.end_time)}</p>
+                                                        <p className="flex items-center gap-2 text-slate-500 font-medium text-sm ml-7">до {formatDateTime(booking.stop_time || booking.end_time)}</p>
                                                     </div>
                                                     <div className="flex gap-3 mt-auto">
                                                         <button onClick={() => handleConfirmBooking(booking.id)} className="flex-1 py-3 bg-[#00D26A] hover:bg-[#00A855] text-white rounded-xl font-extrabold flex justify-center items-center gap-2"><CheckCircle size={18} /> Принять</button>
@@ -296,7 +275,6 @@ export default function Management() {
                             </div>
                         )}
 
-                        {/* ПОДТВЕРЖДЕННЫЕ (status: 1) */}
                         <div>
                             <h2 className="text-2xl font-extrabold mb-6 text-slate-800 px-2 flex items-center gap-3"><span className="w-4 h-4 rounded-full bg-[#00D26A] inline-block"></span>Подтвержденные аренды</h2>
                             <div className="grid grid-cols-1 gap-6">
@@ -305,7 +283,6 @@ export default function Management() {
                                     return (
                                         <div key={booking.id} className="bg-white rounded-[32px] p-6 shadow-sm border-2 border-slate-100 flex flex-col xl:flex-row gap-6">
                                             <div className="flex items-center gap-4 xl:w-1/4">
-                                                {/* ЗАЩИЩЕННАЯ КАРТИНКА */}
                                                 <img
                                                     src={getImageUrl(cat?.filenames)}
                                                     className="w-20 h-20 rounded-[18px] object-cover"
@@ -315,13 +292,13 @@ export default function Management() {
                                                 <div><p className="text-xs font-bold text-slate-400 uppercase">Кот</p><h4 className="text-xl font-extrabold text-slate-800">{cat?.name || booking.cat_name || 'Неизвестно'}</h4></div>
                                             </div>
                                             <div className="flex-1 bg-slate-50 rounded-[20px] p-4 flex flex-col justify-center border border-slate-100">
-                                                <p className="flex items-center gap-2 text-slate-800 font-bold"><User size={16} className="text-[#00C4D1]"/> {booking.nickname}</p>
-                                                <p className="flex items-center gap-2 text-slate-600 font-medium text-sm"><Mail size={16} className="text-[#7838F5]"/> {booking.email}</p>
+                                                <p className="flex items-center gap-2 text-slate-800 font-bold"><User size={16} className="text-[#00C4D1]"/> {booking.nickname || booking.username}</p>
+                                                <p className="flex items-center gap-2 text-slate-600 font-medium text-sm"><Phone size={16} className="text-[#FF6B00]"/> {booking.phone}</p>
                                             </div>
                                             <div className="flex-1 flex flex-col justify-between">
                                                 <div className="mb-4 bg-[#00D26A]/5 rounded-2xl p-4 border border-[#00D26A]/20">
                                                     <p className="flex items-center gap-2 text-[#00A855] font-extrabold mb-1"><Calendar size={18} /> {formatDateTime(booking.start_time)}</p>
-                                                    <p className="flex items-center gap-2 text-slate-600 font-medium text-sm ml-7">до {formatDateTime(booking.end_time)}</p>
+                                                    <p className="flex items-center gap-2 text-slate-600 font-medium text-sm ml-7">до {formatDateTime(booking.stop_time || booking.end_time)}</p>
                                                 </div>
                                                 <div className="flex gap-3 mt-auto">
                                                     <button onClick={() => setReqToEdit(booking)} className="flex-1 py-3 bg-[#7838F5]/10 hover:bg-[#7838F5]/20 text-[#7838F5] rounded-xl font-extrabold flex justify-center items-center gap-2"><Edit3 size={18} /> Редакт.</button>
@@ -333,17 +310,14 @@ export default function Management() {
                                 })}
                             </div>
                         </div>
-
                     </div>
                 )}
             </main>
 
-            {/* Модальные окна */}
             {isAddCatOpen && <AddCat onClose={() => setIsAddCatOpen(false)} onSubmit={handleAddCat} />}
 
             {catToEdit && (
                 <EditCat
-                    // Защищаем передаваемые пропсы (если форма EditCat ожидает image и tags)
                     cat={{
                         ...catToEdit,
                         image: catToEdit.filenames?.[0] || '',
@@ -353,23 +327,31 @@ export default function Management() {
                     onSubmit={handleUpdateCat}
                 />
             )}
+            {isAddUserOpen && (
+                <AddUser
+                    onClose={() => setIsAddUserOpen(false)}
+                    onSubmit={handleAddUser}
+                />
+            )}
 
-            {isAddReqOpen && <AddReq cats={cats} onClose={() => setIsAddReqOpen(false)} onSubmit={handleAddBooking} />}
+            {isAddReqOpen && (
+                <AddReq
+                    cats={cats}
+                    users={users}
+                    onClose={() => setIsAddReqOpen(false)}
+                    onSubmit={handleAddBooking}
+                />
+            )}
 
             {reqToEdit && (
                 <EditReq
                     cats={cats}
-                    booking={{
-                        ...reqToEdit,
-                        catId: reqToEdit.cat_id,
-                        customer: { name: reqToEdit.nickname, phone: '', email: reqToEdit.email },
-                        time:[reqToEdit.start_time, reqToEdit.end_time]
-                    }}
+                    users={users}
+                    booking={reqToEdit}
                     onClose={() => setReqToEdit(null)}
                     onSubmit={handleUpdateBooking}
                 />
             )}
-
         </div>
     );
 }

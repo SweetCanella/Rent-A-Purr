@@ -1,40 +1,30 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, PawPrint, User, Phone, Calendar, Clock } from 'lucide-react';
+import { X, PawPrint, User, Calendar, Clock } from 'lucide-react';
 
 const toInputDatetime = (dateString) => {
     if (!dateString) return '';
     return dateString.substring(0, 16).replace(' ', 'T');
 };
+
 const fromInputDatetime = (datetimeLocal) => datetimeLocal.replace('T', ' ') + ':00';
 
-export default function EditReq({ cats, booking, onClose, onSubmit }) {
-    // УМНАЯ ИНИЦИАЛИЗАЦИЯ: Ищем поля прямо в корне ответа бекенда (booking.phone)
+export default function EditReq({ cats, users, booking, onClose, onSubmit }) {
     const[formData, setFormData] = useState({
         catId: booking.cat_id || booking.catId || '',
-        customerName: booking.nickname || booking.customer?.name || '',
-        customerPhone: booking.phone || booking.customer?.phone || '', // <--- ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ
-        customerEmail: booking.email || booking.customer?.email || '',
+        username: booking.username || users[0]?.username || '',
         start: toInputDatetime(booking.start_time || booking.time?.[0]),
-        end: toInputDatetime(booking.end_time || booking.time?.[1])
+        end: toInputDatetime(booking.stop_time || booking.end_time || booking.time?.[1])
     });
 
     const handleSubmit = (e) => {
         e.preventDefault();
         onSubmit({
             ...booking,
-            // Возвращаем поля в том же виде, в котором они нужны бекенду (плоская структура)
             cat_id: Number(formData.catId),
-            catId: Number(formData.catId), // для совместимости
-            phone: formData.customerPhone,
-            nickname: formData.customerName,
-            email: formData.customerEmail,
+            username: formData.username,
             start_time: fromInputDatetime(formData.start),
-            end_time: fromInputDatetime(formData.end),
-
-            // На всякий случай старая структура для фронта
-            customer: { name: formData.customerName, phone: formData.customerPhone, email: formData.customerEmail },
-            time:[fromInputDatetime(formData.start), fromInputDatetime(formData.end)]
+            stop_time: fromInputDatetime(formData.end)
         });
     };
 
@@ -47,20 +37,18 @@ export default function EditReq({ cats, booking, onClose, onSubmit }) {
                 </div>
                 <div className="p-8 overflow-y-auto no-scrollbar">
                     <form id="edit-req-form" onSubmit={handleSubmit} className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-extrabold text-slate-700 ml-1 uppercase flex items-center gap-2"><PawPrint size={16} className="text-[#F6828C]" /> Выберите кота *</label>
-                            <select required value={formData.catId} onChange={e => setFormData({...formData, catId: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-[#7838F5] outline-none font-bold">
-                                {cats.map(c => <option key={c.id} value={c.id}>{c.name} ({c.breed})</option>)}
-                            </select>
-                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <label className="text-sm font-extrabold text-slate-700 ml-1 uppercase flex items-center gap-2"><User size={16} className="text-[#00C4D1]"/> Имя *</label>
-                                <input required value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-[#7838F5] outline-none font-bold" />
+                                <label className="text-sm font-extrabold text-slate-700 ml-1 uppercase flex items-center gap-2"><PawPrint size={16} className="text-[#F6828C]" /> Выберите кота *</label>
+                                <select required value={formData.catId} onChange={e => setFormData({...formData, catId: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-[#7838F5] outline-none font-bold">
+                                    {cats.map(c => <option key={c.id} value={c.id}>{c.name} ({c.breed})</option>)}
+                                </select>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-extrabold text-slate-700 ml-1 uppercase flex items-center gap-2"><Phone size={16} className="text-[#FF6B00]"/> Телефон *</label>
-                                <input required value={formData.customerPhone} onChange={e => setFormData({...formData, customerPhone: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-[#7838F5] outline-none font-bold" />
+                                <label className="text-sm font-extrabold text-slate-700 ml-1 uppercase flex items-center gap-2"><User size={16} className="text-[#00C4D1]"/> Пользователь *</label>
+                                <select required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-slate-100 focus:border-[#7838F5] outline-none font-bold">
+                                    {users.map(u => <option key={u.username} value={u.username}>{u.nickname} ({u.phone})</option>)}
+                                </select>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
