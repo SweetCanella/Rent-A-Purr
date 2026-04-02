@@ -55,4 +55,10 @@ class Handler{
         static void GetUserData(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
 
         static void LogOut(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
+
+        static void GetUsers(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
+
+        static void RegisterUserAdmin(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
+
+        static void EditAdminBooking(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback);
 };

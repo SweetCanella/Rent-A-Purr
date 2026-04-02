@@ -34,7 +34,7 @@ int main() {
             }
             
             resp->addHeader("Access-Control-Allow-Origin", origin);
-            resp->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            resp->addHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, Patch");
             resp->addHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization, X-Requested-With, Cookie");
             resp->addHeader("Access-Control-Allow-Credentials", "true");
             resp->addHeader("Access-Control-Max-Age", "3600");
@@ -62,6 +62,13 @@ int main() {
     app().registerHandler("/bookings/admin",&Handler::AddAdminBooking,{Post});
     app().registerHandler("/bookings/admin",&Handler::ConfirmAdminBookings,{Put});
     app().registerHandler("/bookings/admin",&Handler::RejectAdminBooking,{Delete});
+    app().registerHandler("/bookings/admin",&Handler::EditAdminBooking,{Patch});
+
+    app().registerHandler("/users",&Handler::GetUsers,{Get});
+
+    app().registerHandler("/admin/UserCreate",&Handler::RegisterUserAdmin,{Post});
+
+
 
     app().registerHandler("/logout",&Handler::LogOut,{Post});
 

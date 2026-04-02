@@ -10,9 +10,10 @@ using namespace std;
 extern DataBase db;
 
 int Handler::IdByLogin(string username){
-    char* sql = sqlite3_mprintf("SELECT id FROM users WHERE username = %Q",username);
+    char* sql = sqlite3_mprintf("SELECT id FROM users WHERE username = %Q", username.c_str());
     vector<vector<string>> output = db.Sql_request_vector(sql);
     sqlite3_free(sql);
+    
     if(output.empty()){
         return -1;
     }
@@ -1305,19 +1306,6 @@ void Handler::RejectAdminBooking(const HttpRequestPtr& request, function<void(co
         return;
     }
 
-    int current_status = stoi(check[0][1]);
-    if (current_status == 1) {
-        Json::Value resp;
-        resp["status"] = "bad";
-        resp["message"] = "Cannot delete confirmed booking. Use cancel instead.";
-        auto response = HttpResponse::newHttpJsonResponse(resp);
-        response->setStatusCode(k400BadRequest);
-        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
-        response->addHeader("Access-Control-Allow-Credentials", "true");
-        callback(response);
-        return;
-    }
-
     char* delete_sql = sqlite3_mprintf("DELETE FROM bookings WHERE id = %d", booking_id);
     bool success = db.Sql_exec(delete_sql);
     sqlite3_free(delete_sql);
@@ -1387,10 +1375,10 @@ void Handler::AddAdminBooking(const HttpRequestPtr& request, function<void(const
         return;
     }
     
-    if (!json->isMember("email") || !json->isMember("cat_id") || !json->isMember("start_time") || !json->isMember("end_time")){
+    if (!json->isMember("username") || !json->isMember("cat_id") || !json->isMember("start_time") || !json->isMember("end_time")){
         Json::Value resp;
         resp["status"] = "bad";
-        resp["message"] = "Missing email or cat_id or start_time or end_time field";
+        resp["message"] = "Missing username or cat_id or start_time or end_time field";
         auto response = HttpResponse::newHttpJsonResponse(resp);
         response->setStatusCode(k400BadRequest);
         response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
@@ -1399,12 +1387,12 @@ void Handler::AddAdminBooking(const HttpRequestPtr& request, function<void(const
         return;
     }
     
-    string email = (*json)["email"].asString();
+    string username = (*json)["username"].asString();
     int cat_id = (*json)["cat_id"].asInt();
     string start_time = (*json)["start_time"].asString();
     string end_time = (*json)["end_time"].asString(); 
 
-    int user_id = IdByLogin(email);
+    int user_id = IdByLogin(username);
     if(user_id ==-1){
         Json::Value resp;
         resp["status"] = "bad";
@@ -1459,11 +1447,7 @@ void Handler::AddAdminBooking(const HttpRequestPtr& request, function<void(const
         return;
     }
 
-
-
-
-    
-    char* sql = sqlite3_mprintf("INSERT INTO bookings (cat_id, user_id, start_time, end_time, status) VALUES (%d, %d, %Q, %Q, 1)",cat_id, user_id,start_time,end_time);
+    char* sql = sqlite3_mprintf("INSERT INTO bookings (cat_id, user_id, start_time, end_time, status) VALUES (%d, %d, %Q, %Q, 1)",cat_id, user_id,start_time.c_str(),end_time.c_str());
     if(!db.Sql_exec(sql)){
         sqlite3_free(sql);
         Json::Value resp;
@@ -1626,6 +1610,246 @@ void Handler::LogOut(const HttpRequestPtr& request, function<void(const HttpResp
     response->addHeader("Set-Cookie", clearCookie);
     
     response->setStatusCode(success ? k200OK : k500InternalServerError);
+    response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    response->addHeader("Access-Control-Allow-Credentials", "true");
+    callback(response);
+}
+
+void Handler::GetUsers(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
+    string sessionId = request->getCookie("session_id");
+    int user_id = checkAuth(sessionId);
+    
+    if (user_id == -1) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Unauthorized";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k401Unauthorized);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    
+    if (!CheckPermissions(user_id)) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Access Denied";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k403Forbidden);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+
+    Json::Value users(Json::arrayValue);
+    char* sql = sqlite3_mprintf("SELECT username, nickname, phone FROM users");
+    db.Sql_request_callback(sql, [&users](vector<string> output) {
+        Json::Value user;
+        user["username"]=output[0];
+        user["nickname"]=output[1];
+        user["phone"]=output[2];
+        users.append(user);
+    });
+
+    sqlite3_free(sql);
+
+    Json::Value resp;
+    resp["status"] = "ok";
+    resp["users"] = users;
+
+    auto response = HttpResponse::newHttpJsonResponse(resp);
+    response->setStatusCode(k200OK);
+    response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    response->addHeader("Access-Control-Allow-Credentials", "true");
+    callback(response);
+}
+
+void Handler::RegisterUserAdmin(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
+    string sessionId = request->getCookie("session_id");
+    int user_id = checkAuth(sessionId);
+    
+    if (user_id == -1) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Unauthorized";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k401Unauthorized);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    
+    if (!CheckPermissions(user_id)) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Access Denied";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k403Forbidden);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+
+    auto json = request->getJsonObject();
+    if(!json){
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="Bad Json";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k400BadRequest);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    
+    if (!json->isMember("username") || !json->isMember("password") || !json->isMember("nickname") || !json->isMember("phone")){
+        Json::Value bad_answer;
+        bad_answer["status"] = "bad";
+        bad_answer["message"] = "Missing required fields: username, password, nickname, phone";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k400BadRequest);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+
+    string username = (*json)["username"].asString();
+    string password = (*json)["password"].asString();
+    string nickname = (*json)["nickname"].asString();
+    string phone = (*json)["phone"].asString();
+    password = hashPassword(password);
+    
+    char *sql = sqlite3_mprintf("SELECT id FROM users WHERE username=%Q", username.c_str());
+    vector<vector<string>> check = db.Sql_request_vector(sql);
+    sqlite3_free(sql);
+    
+    if(!check.empty()){
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="User already exists";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k409Conflict);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    
+    sql = sqlite3_mprintf("INSERT INTO users (username, password, nickname, phone) VALUES (%Q, %Q, %Q, %Q)", username.c_str(), password.c_str(), nickname.c_str(),phone.c_str());
+    if(!(db.Sql_exec(sql))){
+        sqlite3_free(sql);
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="Cant insert Data";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k500InternalServerError);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    sqlite3_free(sql);
+
+    long long id = db.GetLastInsertId();
+    string session_id = createSession(id);
+
+    Json::Value resp;
+    resp["status"] = "ok";
+    resp["message"] = "User created";
+    resp["user"]["nickname"] = nickname;
+    resp["user"]["user_id"] = id;
+    resp["user"]["phone"] = phone;
+    resp["user"]["access_level"] = 0;
+
+    auto response = HttpResponse::newHttpJsonResponse(resp);
+    
+    response->setStatusCode(k201Created);
+    response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+    response->addHeader("Access-Control-Allow-Credentials", "true");
+    callback(response);
+}
+
+void Handler::EditAdminBooking(const HttpRequestPtr& request, function<void(const HttpResponsePtr&)>&& callback){
+    cout << request->getMethodString() << " " << request->getPath() << endl;
+
+    string sessionId = request->getCookie("session_id");
+    int user_id = checkAuth(sessionId);
+    
+    if (user_id == -1) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Unauthorized";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k401Unauthorized);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    
+    if (!CheckPermissions(user_id)) {
+        Json::Value resp;
+        resp["status"] = "bad";
+        resp["message"] = "Access Denied";
+        auto response = HttpResponse::newHttpJsonResponse(resp);
+        response->setStatusCode(k403Forbidden);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+
+    auto json = request->getJsonObject();
+    if(!json){
+        Json::Value bad_answer;
+        bad_answer["status"]="bad";
+        bad_answer["message"]="Bad Json";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k400BadRequest);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    
+    if (!json->isMember("start_time") || !json->isMember("end_time") || !json->isMember("booking_id")){
+        Json::Value bad_answer;
+        bad_answer["status"] = "bad";
+        bad_answer["message"] = "Missing required fields: username, password, nickname, phone";
+        auto response = HttpResponse::newHttpJsonResponse(bad_answer);
+        response->setStatusCode(k400BadRequest);
+        response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+        response->addHeader("Access-Control-Allow-Credentials", "true");
+        callback(response);
+        return;
+    }
+    string start_time = (*json)["start_time"].asString();
+    cout<<start_time<<endl;
+    string end_time = (*json)["end_time"].asString();
+    cout<<end_time<<endl;
+    int id = (*json)["booking_id"].asInt();
+
+    char* sql = sqlite3_mprintf("UPDATE bookings SET start_time=%Q, end_time=%Q WHERE id =%d",start_time.c_str(),end_time.c_str(),id);
+    db.Sql_exec(sql);
+    sqlite3_free(sql);
+
+    Json::Value resp;
+    resp["status"] = "ok";
+    resp["start_time"] =start_time;
+    resp["end_time"] =end_time;
+    
+    auto response = HttpResponse::newHttpJsonResponse(resp);
+    response->setStatusCode(k200OK);
     response->addHeader("Access-Control-Allow-Origin", "http://localhost:5173");
     response->addHeader("Access-Control-Allow-Credentials", "true");
     callback(response);
