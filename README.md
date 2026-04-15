@@ -7,8 +7,8 @@
 
 ## Структура репозитория
 
-- [Ветка `back`](./tree/back) — бэкенд проекта.
-- [Ветка `front`](./tree/front) — фронтенд проекта.
+- Ветка [`back`](https://github.com/SweetCanella/Rent-A-Purr/tree/back) — бэкенд проекта.
+- Ветка [`front`](https://github.com/SweetCanella/Rent-A-Purr/tree/front) — фронтенд проекта.
 
 ## Авторы
 
