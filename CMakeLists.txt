@@ -4,19 +4,16 @@ project(SPO_1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 1. Handle vcpkg Toolchain Portably
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     if(DEFINED ENV{VCPKG_ROOT})
         set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
     elseif(WIN32)
         set(CMAKE_TOOLCHAIN_FILE "C:/Users/evgen/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
     else()
-        # Common Linux path for vcpkg
         set(CMAKE_TOOLCHAIN_FILE "$ENV{HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
     endif()
 endif()
 
-# 2. Set Triplet based on OS
 if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     if(WIN32)
         set(VCPKG_TARGET_TRIPLET "x64-mingw-static" CACHE STRING "")
@@ -25,22 +22,17 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
     endif()
 endif()
 
-# 3. Find Packages (Standardized)
-# Note: Removed hardcoded C:/ paths. vcpkg handles this via the toolchain.
 find_package(Drogon CONFIG REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 
-# ============ LOCAL SQLITE ============
 add_library(SQLite3_local STATIC 
     libs/Sql/sqlite3.c
 )
 target_include_directories(SQLite3_local PUBLIC libs/Sql)
 
-# On Linux, SQLite often needs the threading library
 find_package(Threads REQUIRED)
 target_link_libraries(SQLite3_local PUBLIC Threads::Threads)
 
-# ============ EXECUTABLE ============
 add_executable(SPO_1 
     main.cpp
     DataBase.cpp

@@ -6,19 +6,44 @@
 using namespace drogon;
 using namespace std;
 
-
 DataBase db;
 
+uint16_t port = 8000;
+string server = "http://localhost:5173";
+
+
+int main(int argc, char* argv[]) {
+    for(int i = 1; i< argc; i++){
+        string argument = argv[i];
+        if(argument == "-s" || argument == "-server"){
+            if(i + 1 < argc){
+                server = argv[++i];
+            }
+        }else if(argument == "-p" || argument == "-port"){
+            if(i + 1 < argc){
+                try{
+                    int buffer_port = stoi(argv[++i]);
+                    if(buffer_port > 0 && buffer_port <= 65535){
+                        port = static_cast<uint16_t>(buffer_port);
+                    }else{
+                        cout<<"Invalid port number. Using default"<<endl;
+                    }
+                }catch(...){
+                    cout<<"Invalid port number. Using default"<<endl;
+                }
+            }
+        }
+    }
 
 
 
-int main() {
+
 
     app().setThreadNum(4);
     app().setDocumentRoot("../images/");
     app().setStaticFileHeaders({
         {"Cache-Control", "public, max-age=86400"},
-        {"Access-Control-Allow-Origin", "http://localhost:5173"},
+        {"Access-Control-Allow-Origin", server},
         {"Access-Control-Allow-Credentials", "true"}
     });
 
@@ -30,7 +55,7 @@ int main() {
             
             string origin = req->getHeader("Origin");
             if (origin.empty()){
-                origin = "http://localhost:5173";
+                origin = server;
             }
             
             resp->addHeader("Access-Control-Allow-Origin", origin);
@@ -44,8 +69,7 @@ int main() {
         }
         chain();
     });
-
-
+ 
     app().registerHandler("/register", &Handler::RegisterUser, {Post});
 
     app().registerHandler("/login", &Handler::AutoriseUser, {Post});
@@ -74,7 +98,7 @@ int main() {
 
     cout<<"server is running"<<endl;
 
-    app().addListener("0.0.0.0", 8000).run();
+    app().addListener("0.0.0.0", port).run();
 
     return 0;
 }
